@@ -14,11 +14,17 @@ compared to values from the encoder by a low level controller which then
 controls the motors.
 
 The output data has the form:
+
 encoder -> linear speed
+
 gyro -> angular speed
+
 encoder -> angular speed
+
 compass -> heading (currently useless)
-prox. sensors -> counts from front detector.
+
+prox. sensors -> counts from front detector
+
 
 ------------------------------------------------------------------------
 The Arduino sketch required for the Bupimo robot.
