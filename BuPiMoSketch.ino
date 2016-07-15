@@ -11,7 +11,7 @@
 
 //#include "ContainerInt.h"
 #include "Compass.h"
-#include "Encoder.h"
+#include "EncoderOdometry.h"
 #include "Gyro.h"
 
 #define USE_COMPASS 0 // 0 means no 1 means yes.
@@ -37,7 +37,7 @@ Zumo32U4ProximitySensors proxSensors;
 
 // These classes contain instansts of class from Zumo32u4.h
 Compass * compass;
-Encoders * encoders;
+EncoderOdometry * odometer;
 Gyro * gyro;
 
 // Used to turn the robot on and off.
@@ -58,7 +58,7 @@ float rightWheelDesired = 0.;
 float leftWheelDesired = 0.;
 
 // These are uncalibrated values sent to the motors in the range +/-400. The
-/// resultsing angular speeds of the wheels depend on the battery level.
+// resulting angular speeds of the wheels depend on the battery level.
 int leftMotorValue = 0;
 int rightMotorValue = 0;
 
@@ -78,7 +78,7 @@ void setup() {
   
   // Initialize sensor classes
   compass = new Compass();
-  encoders = new Encoders();
+  odometer = new EncoderOdometry();
   gyro = new Gyro();
 
   // Calibrate gyro
@@ -148,14 +148,14 @@ void ControlLoop() {
   
   compass->UpdateCompassReading();
   
-  encoders->UpdateWheelSpeeds();
+  odometer->Update();
 
   UpdatedProxSensors();
 
   // This is the motor control part of the code
   // Calculate errors
-  float errorRight = rightWheelDesired - encoders->GetRightWheelSpeed();
-  float errorLeft = leftWheelDesired - encoders->GetLeftWheelSpeed();
+  float errorRight = rightWheelDesired - odometer->GetRightWheelSpeed();
+  float errorLeft = leftWheelDesired - odometer->GetLeftWheelSpeed();
 
   // Adjust wheel speeds based on error values
   if (errorRight > 0.) rightMotorValue += 1;
@@ -182,13 +182,19 @@ void ControlLoop() {
     //Serial.print("\t");
     //Serial.print(linearSpeedDesired);
     //Serial.print("\t");
-    Serial.print(encoders->GetLinearSpeed());
+    Serial.print(odometer->GetX());
+    Serial.print("\t");
+    Serial.print(odometer->GetY());
+    Serial.print("\t");
+    Serial.print(odometer->GetTheta());
+    Serial.print("\t");
+    Serial.print(odometer->GetLinearSpeed());
     Serial.print("\t");
     //Serial.print(angularSpeedDesired);
     //Serial.print("\t");
     Serial.print(gyro->GetAngularSpeedRaw());
     Serial.print("\t");
-    Serial.print(encoders->GetAngularSpeed());
+    Serial.print(odometer->GetAngularSpeed());
     Serial.print("\t");
     Serial.print(compass->GetHeadingAvg());
     Serial.print("\t");
