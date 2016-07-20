@@ -1,8 +1,9 @@
 /*
-    BuPiZu Sketch --  FILL THIS IN!!!
+    Bupimo Sketch --  FILL THIS IN!!!
     ------------------------------------------------------------------------------------------------
 
     Nicholi Shiell
+    Andrew Vardy
 */
 
 #include <Wire.h>
@@ -24,6 +25,9 @@
 
 #define MAX_LINEAR_SPEED 0.5 // Measured in [meters / sec]
 #define MAX_ANGULAR_SPEED 2. // Measured in [rads / sec]
+
+// Proportional control constant for wheel speeds
+#define K_PROP 10.0
 
 // Zumo constants
 #define zumoBaseLength 0.085
@@ -70,8 +74,9 @@ int nFront = 0;
 
 void setup() {
   Wire.begin();
-  
-  Serial.setTimeout(10); // default value 1000.
+
+  Serial1.begin(BAUDRATE);
+  Serial1.setTimeout(10); // default value 1000.
 
   // Initialize the proximity counters
   proxSensors.initThreeSensors();
@@ -107,8 +112,7 @@ void CommandParse(char* readFromSerial) {
      
 }
 
-void UpdatedProxSensors(){
-  // put your main code here, to run repeatedly:
+void UpdateProxSensors(){
     proxSensors.read();
     
     nLeft = proxSensors.countsLeftWithLeftLeds()+proxSensors.countsLeftWithRightLeds();   
@@ -126,16 +130,16 @@ void ControlLoop() {
   unsigned long currentTime = millis();
 
   // If there is data available from the serial port read it!
-  if (Serial.readBytes(input, INPUT_SIZE) != 0) {
-    Serial.println("Command Recieved!");
-    Serial.println(input);
+  if (Serial1.readBytes(input, INPUT_SIZE) != 0) {
+    Serial1.println("Command Recieved!");
+    Serial1.println(input);
     CommandParse(input);
     CalculateDesiredWheelSpeeds();
     commandTimeStamp = currentTime;
   }
 
   // Check command time stamp. If expired reset motion commands to zero. 
-  if ( float(currentTime - commandTimeStamp)/1000. > runTime && runTime > 0.) {
+  if (runTime > 0. && float(currentTime - commandTimeStamp)/1000. > runTime) {
     linearSpeedDesired = 0.;
     angularSpeedDesired = 0.;
     CalculateDesiredWheelSpeeds();
@@ -150,7 +154,7 @@ void ControlLoop() {
   
   odometer->Update();
 
-  UpdatedProxSensors();
+  UpdateProxSensors();
 
   // This is the motor control part of the code
   // Calculate errors
@@ -158,13 +162,15 @@ void ControlLoop() {
   float errorLeft = leftWheelDesired - odometer->GetLeftWheelSpeed();
 
   // Adjust wheel speeds based on error values
-  if (errorRight > 0.) rightMotorValue += 1;
-  else if (errorRight < 0.) rightMotorValue -= 1;
-  else {}
+  //if (errorRight > 0.) rightMotorValue += 1;
+  //else if (errorRight < 0.) rightMotorValue -= 1;
+  //else {}
+  rightMotorValue += (int)(K_PROP * errorRight);
 
-  if (errorLeft > 0.) leftMotorValue += 1;
-  else if (errorLeft < 0.) leftMotorValue -= 1;
-  else {}
+  //if (errorLeft > 0.) leftMotorValue += 1;
+  //else if (errorLeft < 0.) leftMotorValue -= 1;
+  //else {}
+  leftMotorValue += (int)(K_PROP * errorLeft);
 
   if (leftMotorValue >= 400) leftMotorValue = 400;
   if (leftMotorValue <= -400) leftMotorValue = -400;
@@ -178,28 +184,28 @@ void ControlLoop() {
   if ( (currentTime -  lastSerialCommTimeStamp) > COMMS_UPDATE_RATE) {
     lastSerialCommTimeStamp = currentTime;
    
-    //Serial.print(currentTime);
-    //Serial.print("\t");
-    //Serial.print(linearSpeedDesired);
-    //Serial.print("\t");
-    Serial.print(odometer->GetX());
-    Serial.print("\t");
-    Serial.print(odometer->GetY());
-    Serial.print("\t");
-    Serial.print(odometer->GetTheta());
-    Serial.print("\t");
-    Serial.print(odometer->GetLinearSpeed());
-    Serial.print("\t");
-    //Serial.print(angularSpeedDesired);
-    //Serial.print("\t");
-    Serial.print(gyro->GetAngularSpeedRaw());
-    Serial.print("\t");
-    Serial.print(odometer->GetAngularSpeed());
-    Serial.print("\t");
-    Serial.print(compass->GetHeadingAvg());
-    Serial.print("\t");
-    Serial.print(nFront);
-    Serial.print("\n");
+    //Serial1.print(currentTime);
+    //Serial1.print("\t");
+    //Serial1.print(linearSpeedDesired);
+    //Serial1.print("\t");
+    Serial1.print(odometer->GetX());
+    Serial1.print("\t");
+    Serial1.print(odometer->GetY());
+    Serial1.print("\t");
+    Serial1.print(odometer->GetTheta());
+    Serial1.print("\t");
+    Serial1.print(odometer->GetLinearSpeed());
+    Serial1.print("\t");
+    //Serial1.print(angularSpeedDesired);
+    //Serial1.print("\t");
+    //Serial1.print(gyro->GetAngularSpeedRaw());
+    //Serial1.print("\t");
+    Serial1.print(odometer->GetAngularSpeed());
+    Serial1.print("\t");
+    Serial1.print(compass->GetHeadingAvg());
+    Serial1.print("\t");
+    Serial1.print(nFront);
+    Serial1.print("\n");
 
   }
 }
@@ -216,7 +222,7 @@ void loop() {
   }
   
   else {
-    //Serial.println(F("Press C button to begin..."));
+    //sll.println(F("Press C button to begin..."));
     motors.setSpeeds(0, 0);
   }
   
