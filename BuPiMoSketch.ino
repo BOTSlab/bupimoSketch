@@ -75,8 +75,13 @@ int nFront = 0;
 void setup() {
   Wire.begin();
 
+  // Serial 1 is the connection with the Pi
   Serial1.begin(BAUDRATE);
   Serial1.setTimeout(10); // default value 1000.
+
+  // Serial 0 is just for debugging with a host PC over USB
+  //Serial.begin(BAUDRATE);
+  //Serial.setTimeout(10);
 
   // Initialize the proximity counters
   proxSensors.initThreeSensors();
@@ -104,6 +109,7 @@ void setup() {
 void CommandParse(char* readFromSerial) {
   // Read each command pair
   char* command = strtok(readFromSerial, ":");
+
   linearSpeedDesired = atof(command);
   command = strtok(0, ":");
   angularSpeedDesired = atof(command);
@@ -111,16 +117,17 @@ void CommandParse(char* readFromSerial) {
   runTime = atof(command);
 
   if(linearSpeedDesired > MAX_LINEAR_SPEED) linearSpeedDesired = MAX_LINEAR_SPEED;
-  if(angularSpeedDesired > MAX_ANGULAR_SPEED) angularSpeedDesired = MAX_ANGULAR_SPEED;
-     
+  if(linearSpeedDesired < -MAX_LINEAR_SPEED) linearSpeedDesired = -MAX_LINEAR_SPEED;
+  if(angularSpeedDesired > MAX_ANGULAR_SPEED) angularSpeedDesired = MAX_ANGULAR_SPEED;     
+  if(angularSpeedDesired < -MAX_ANGULAR_SPEED) angularSpeedDesired = -MAX_ANGULAR_SPEED;
 }
 
 void UpdateProxSensors(){
-    proxSensors.read();
-    
-    nLeft = proxSensors.countsLeftWithLeftLeds()+proxSensors.countsLeftWithRightLeds();   
-    nFront = proxSensors.countsFrontWithLeftLeds()+proxSensors.countsFrontWithRightLeds();  
-    nRight = proxSensors.countsRightWithLeftLeds()+proxSensors.countsRightWithRightLeds();
+  proxSensors.read();
+  
+  nLeft = proxSensors.countsLeftWithLeftLeds()+proxSensors.countsLeftWithRightLeds();   
+  nFront = proxSensors.countsFrontWithLeftLeds()+proxSensors.countsFrontWithRightLeds();  
+  nRight = proxSensors.countsRightWithLeftLeds()+proxSensors.countsRightWithRightLeds();
 }
 
 void CalculateDesiredWheelSpeeds() {
@@ -129,11 +136,11 @@ void CalculateDesiredWheelSpeeds() {
 }
 
 void ZeroSpeeds() {
-    linearSpeedDesired = 0.;
-    angularSpeedDesired = 0.;
-    CalculateDesiredWheelSpeeds();
-    
-    rightMotorValue = leftMotorValue = 0;
+  linearSpeedDesired = 0.;
+  angularSpeedDesired = 0.;
+  CalculateDesiredWheelSpeeds();
+  
+  rightMotorValue = leftMotorValue = 0;
 }
 
 void ControlLoop() {
@@ -142,8 +149,6 @@ void ControlLoop() {
 
   // If there is data available from the serial port read it!
   if (Serial1.readBytes(input, INPUT_SIZE) != 0) {
-//    Serial1.println("Command Recieved!");
-//    Serial1.println(input);
     CommandParse(input);
     CalculateDesiredWheelSpeeds();
     commandTimeStamp = currentTime;
@@ -202,17 +207,19 @@ void ControlLoop() {
     Serial1.print("\t");
     Serial1.print(odometer->GetLinearSpeed());
     Serial1.print("\t");
-    //Serial1.print(angularSpeedDesired);
-    //Serial1.print("\t");
-    //Serial1.print(gyro->GetAngularSpeedRaw());
-    //Serial1.print("\t");
     Serial1.print(odometer->GetAngularSpeed());
     Serial1.print("\t");
     Serial1.print(compass->GetHeadingAvg());
     Serial1.print("\t");
     Serial1.print(nFront);
+    Serial1.print("\t");
     Serial1.print("\n");
 
+    // For debugging on serial port 0
+    //Serial.print(linearSpeedDesired);
+    //Serial.print("\t");
+    //Serial.print(angularSpeedDesired);
+    //Serial.print("\n");
   }
 }
 void loop() {
@@ -246,9 +253,6 @@ void loop() {
 
     //sll.println(F("Press C button to begin..."));
     motors.setSpeeds(0, 0);
-    
-  }
-  
+  }  
 }
-
 
