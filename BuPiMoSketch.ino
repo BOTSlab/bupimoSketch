@@ -1,5 +1,19 @@
 /*
-    Bupimo Sketch --  FILL THIS IN!!!
+    Bupimo Sketch --  Low-level controller which runs on the Zumo 32U4 robot.  The high-level
+                      controller sends command strings over a serial link.  The format for these
+                      commands is as follows:
+                      
+                        desired_linear_speed:desired_angular_speed:run_time
+
+                      These quantities have units of m/sec, rads/sec, and seconds.  If run_time is
+                      set to 0 then the desired speeds will be set indefinitely.  Send the command
+                      "0:0:0" to stop the robot.
+
+                      After receiving a command string, we will respond with the following  sequence 
+                      of tab-separated quantities:
+
+                          odoX, odoY, odoTheta, linearSpeed, angularSpeed, compassHeading
+                      
     ------------------------------------------------------------------------------------------------
 
     Nicholi Shiell
@@ -15,7 +29,7 @@
 #include "EncoderOdometry.h"
 #include "Gyro.h"
 
-#define USE_COMPASS 0 // 0 means no 1 means yes.
+#define CALIBRATE_COMPASS 0 // 0 means no 1 means yes.
 #define BAUDRATE     57600 // Baud rate used by the serial port
 #define AVERAGE_OVER_N 50 // The number of samples used to calculate running average
 #define CALIBRATION_SAMPLES 250  // The number samples used to find max/min compass reading
@@ -27,6 +41,7 @@
 #define MAX_ANGULAR_SPEED 2. // Measured in [rads / sec]
 
 // Proportional control constant for wheel speeds
+#define USE_PROP_CONTROL 1
 #define K_PROP 10.0
 
 // Zumo constants
@@ -35,7 +50,7 @@
 
 
 // Object definitions
-Zumo32U4ButtonC buttonC;
+Zumo32U4ButtonA buttonA;
 Zumo32U4Motors motors;
 Zumo32U4ProximitySensors proxSensors;
 
@@ -95,7 +110,7 @@ void setup() {
   gyro->Calibrate();
 
   // Calibrate compass
-  if(USE_COMPASS){
+  if(CALIBRATE_COMPASS){
     motors.setSpeeds(100, -100);
     compass->Calibrate();
     motors.setSpeeds(0, 0);
@@ -176,12 +191,18 @@ void ControlLoop() {
   //if (errorRight > 0.) rightMotorValue += 1;
   //else if (errorRight < 0.) rightMotorValue -= 1;
   //else {}
-  rightMotorValue += (int)(K_PROP * errorRight);
+  if (USE_PROP_CONTROL)
+    rightMotorValue += (int)(K_PROP * errorRight);
+  else
+    rightMotorValue = rightWheelDesired;
 
   //if (errorLeft > 0.) leftMotorValue += 1;
   //else if (errorLeft < 0.) leftMotorValue -= 1;
   //else {}
-  leftMotorValue += (int)(K_PROP * errorLeft);
+  if (USE_PROP_CONTROL)
+    leftMotorValue += (int)(K_PROP * errorLeft);
+  else
+    leftMotorValue = leftWheelDesired;
 
   if (leftMotorValue >= 400) leftMotorValue = 400;
   if (leftMotorValue <= -400) leftMotorValue = -400;
@@ -224,9 +245,9 @@ void ControlLoop() {
 }
 void loop() {
 
-  // The "C" button toggles between active movement of the robot and the stopped mode
+  // The "A" button toggles between active movement of the robot and the stopped mode
   // which ignores serial input.
-  if (buttonC.getSingleDebouncedPress()) {
+  if (buttonA.getSingleDebouncedPress()) {
     if (robotOnFlag) {
       robotOnFlag = false;
       ledRed(1);
@@ -251,7 +272,7 @@ void loop() {
        // Pass
     }
 
-    //sll.println(F("Press C button to begin..."));
+    //sll.println(F("Press A button to begin..."));
     motors.setSpeeds(0, 0);
   }  
 }
