@@ -10,6 +10,9 @@
                       Otherwise, it will be left alone.  Send the command "0:0:0" (or "0:0:1") to 
                       stop the robot.
 
+                      3 seconds after receiving a command, the robot will stop.  So it needs to be
+                      continuously fed new commands to keep going.
+
                       After receiving a command string, we will respond with the following  sequence 
                       of tab-separated quantities:
 
@@ -61,12 +64,12 @@ EncoderOdometry * odometer;
 Gyro * gyro;
 
 // Used to turn the robot on and off.
-bool robotOnFlag = false;
+bool robotOnFlag = true;
 
 // These values store motion commands and are read from the serial port
 float linearSpeedDesired = 0.;
 float angularSpeedDesired = 0.;
-float runTime = 0.;
+int resetOdometer = 0.;
 unsigned long commandTimeStamp = 0;
 
 // These have to do with serial comms.
@@ -91,9 +94,9 @@ int nFront = 0;
 void setup() {
   Wire.begin();
 
-  // Serial 1 is the connection with the Pi
-  Serial1.begin(BAUDRATE);
-  Serial1.setTimeout(10); // default value 1000.
+  // Use Serial when connected to the Up board over USB.  Use Serial1 when connected to the Pi through Dennis's interface board.
+  Serial.begin(BAUDRATE);
+  Serial.setTimeout(10); // default value 1000.
 
   // Serial 0 is just for debugging with a host PC over USB
   //Serial.begin(BAUDRATE);
@@ -117,8 +120,8 @@ void setup() {
     motors.setSpeeds(0, 0);
   }
 
-  ledRed(1);
-  ledGreen(0);
+  ledRed(0);
+  ledGreen(1);
 }
 
 // This function splits the serial msg into its parts
@@ -130,12 +133,15 @@ void CommandParse(char* readFromSerial) {
   command = strtok(0, ":");
   angularSpeedDesired = atof(command);
   command = strtok(0, ":");
-  runTime = atof(command);
+  resetOdometer = atoi(command);
 
-  if(linearSpeedDesired > MAX_LINEAR_SPEED) linearSpeedDesired = MAX_LINEAR_SPEED;
-  if(linearSpeedDesired < -MAX_LINEAR_SPEED) linearSpeedDesired = -MAX_LINEAR_SPEED;
-  if(angularSpeedDesired > MAX_ANGULAR_SPEED) angularSpeedDesired = MAX_ANGULAR_SPEED;     
-  if(angularSpeedDesired < -MAX_ANGULAR_SPEED) angularSpeedDesired = -MAX_ANGULAR_SPEED;
+  if (linearSpeedDesired > MAX_LINEAR_SPEED) linearSpeedDesired = MAX_LINEAR_SPEED;
+  if (linearSpeedDesired < -MAX_LINEAR_SPEED) linearSpeedDesired = -MAX_LINEAR_SPEED;
+  if (angularSpeedDesired > MAX_ANGULAR_SPEED) angularSpeedDesired = MAX_ANGULAR_SPEED;     
+  if (angularSpeedDesired < -MAX_ANGULAR_SPEED) angularSpeedDesired = -MAX_ANGULAR_SPEED;
+
+  if (resetOdometer)
+    odometer->ResetPosition();
 }
 
 void UpdateProxSensors(){
@@ -164,15 +170,20 @@ void ControlLoop() {
   unsigned long currentTime = millis();
 
   // If there is data available from the serial port read it!
-  if (Serial1.readBytes(input, INPUT_SIZE) != 0) {
+  if (Serial.readBytes(input, INPUT_SIZE) != 0) {
     CommandParse(input);
     CalculateDesiredWheelSpeeds();
     commandTimeStamp = currentTime;
+  } else {
+    if (currentTime - commandTimeStamp > 3000) {
+      // No recent commands received.  Stop the robot!
+      ZeroSpeeds();
+    }
   }
 
   // Check command time stamp. If expired reset motion commands to zero. 
-  if (runTime > 0. && float(currentTime - commandTimeStamp)/1000. > runTime)
-    ZeroSpeeds();
+  //if (runTime > 0. && float(currentTime - commandTimeStamp)/1000. > runTime)
+  //  ZeroSpeeds();
 
   // Update all the sensors
   gyro->UpdateGyroReading();
@@ -215,25 +226,25 @@ void ControlLoop() {
   if ( (currentTime -  lastSerialCommTimeStamp) > COMMS_UPDATE_RATE) {
     lastSerialCommTimeStamp = currentTime;
    
-    //Serial1.print(currentTime);
-    //Serial1.print("\t");
-    //Serial1.print(linearSpeedDesired);
-    //Serial1.print("\t");
-    Serial1.print(odometer->GetX());
-    Serial1.print("\t");
-    Serial1.print(odometer->GetY());
-    Serial1.print("\t");
-    Serial1.print(odometer->GetTheta());
-    Serial1.print("\t");
-    Serial1.print(odometer->GetLinearSpeed());
-    Serial1.print("\t");
-    Serial1.print(odometer->GetAngularSpeed());
-    Serial1.print("\t");
-    Serial1.print(compass->GetHeadingAvg());
-    Serial1.print("\t");
-    Serial1.print(nFront);
-    Serial1.print("\t");
-    Serial1.print("\n");
+    //Serial.print(currentTime);
+    //Serial.print("\t");
+    //Serial.print(linearSpeedDesired);
+    //Serial.print("\t");
+    Serial.print(odometer->GetX());
+    Serial.print("\t");
+    Serial.print(odometer->GetY());
+    Serial.print("\t");
+    Serial.print(odometer->GetTheta());
+    Serial.print("\t");
+    Serial.print(odometer->GetLinearSpeed());
+    Serial.print("\t");
+    Serial.print(odometer->GetAngularSpeed());
+    Serial.print("\t");
+    Serial.print(compass->GetHeadingAvg());
+    Serial.print("\t");
+    Serial.print(nFront);
+    Serial.print("\t");
+    Serial.print("\n");
 
     // For debugging on serial port 0
     //Serial.print(linearSpeedDesired);
@@ -260,7 +271,7 @@ void loop() {
       // Reset desired speeds to 0.  Otherwise, there will be some residual movement
       // from the last active state.
       ZeroSpeeds();
-      odometer->ResetCounts();
+      odometer->ResetPosition();
     }
   }
 
@@ -268,11 +279,10 @@ void loop() {
     ControlLoop();
   } else {
     // If there is data coming in on the serial port, just read and ignore it:
-    if (Serial1.readBytes(input, INPUT_SIZE) != 0) { 
+    if (Serial.readBytes(input, INPUT_SIZE) != 0) { 
        // Pass
     }
 
-    //sll.println(F("Press button to begin..."));
     motors.setSpeeds(0, 0);
   }  
 }

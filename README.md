@@ -1,17 +1,15 @@
--------------------------------------------------------------------------
-UPDATE: July 5th 2016 Nicholi.
+The Arduino sketch for our robots which use the Pololu Zumo 32U4 base. The
+sketch listens for commands as well as outputs sensor readings over serial. The
+commands need the following form:
 
-The Arduino sketch for the Bupimo robot. The sketch listens for commands
-as well as outputs sensor readings over serial. The commands need the
-following form:
-
-v:w:t
+v:w:r
 
 Where v is the linear speed (m/s), w is the angular speed (rads/s), and
-t is the length of time this command should be executed (s). A t value
-of -1 will cause the command to be run indefinitely. These commands are 
-compared to values from the encoder by a low level controller which then
-controls the motors.
+r is a 0/1 value indicating whether the odometric estimate of position should
+be reset to (0, 0, 0).  The speed values commands are compared to values from
+the encoders by a low-level controller which then controls the motors.
+
+3 seconds after receiving a command the robot will stop.
 
 The output data has the form:
 
@@ -25,10 +23,8 @@ compass -> heading (currently useless)
 
 prox. sensors -> counts from front detector
 
-
 ------------------------------------------------------------------------
 The Arduino sketch required for the Bupimo robot.
 
-15 June, 2016
+29 May, 2018
 Andrew Vardy
-----------------------------------------------------------------------

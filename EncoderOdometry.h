@@ -5,6 +5,7 @@ class EncoderOdometry {
   public:
     EncoderOdometry(float minTime = 100., float bl = 0.085, float wr = 0.019, float cpr = 1204.44);
 
+    void ResetPosition();
     void ResetCounts();
     void Update();
 
@@ -64,6 +65,12 @@ EncoderOdometry::EncoderOdometry(float minTime, float bl, float wr, float cpr) {
   wheelRadius = wr;
   countsPerRotation = cpr;
 };
+
+void EncoderOdometry::ResetPosition() {
+  x = 0;
+  y = 0;
+  theta = 0;
+}
 
 void EncoderOdometry::ResetCounts() {
   int16_t countsLeft = encoders.getCountsAndResetLeft();
