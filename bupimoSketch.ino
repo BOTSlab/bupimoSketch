@@ -3,11 +3,12 @@
                       controller sends command strings over a serial link.  The format for these
                       commands is as follows:
                       
-                        desired_linear_speed:desired_angular_speed:run_time
+                        desired_linear_speed:desired_angular_speed:reset_odometer
 
-                      These quantities have units of m/sec, rads/sec, and seconds.  If run_time is
-                      set to 0 then the desired speeds will be set indefinitely.  Send the command
-                      "0:0:0" to stop the robot.
+                      These quantities have units of m/sec and rads/sec.  If reset_odometer is
+                      set to 1 then the odometric estimate of position will be reset to (0, 0, 0).
+                      Otherwise, it will be left alone.  Send the command "0:0:0" (or "0:0:1") to 
+                      stop the robot.
 
                       After receiving a command string, we will respond with the following  sequence 
                       of tab-separated quantities:
@@ -30,7 +31,7 @@
 #include "Gyro.h"
 
 #define CALIBRATE_COMPASS 0 // 0 means no 1 means yes.
-#define BAUDRATE     57600 // Baud rate used by the serial port
+#define BAUDRATE     115200 // Baud rate used by the serial port
 #define AVERAGE_OVER_N 50 // The number of samples used to calculate running average
 #define CALIBRATION_SAMPLES 250  // The number samples used to find max/min compass reading
 #define CONTROL_UPDATE_RATE 20 // Delay in milliseconds before control loop updates
@@ -41,8 +42,8 @@
 #define MAX_ANGULAR_SPEED 2. // Measured in [rads / sec]
 
 // Proportional control constant for wheel speeds
-#define USE_PROP_CONTROL 1
-#define K_PROP 10.0
+//#define K_PROP 10.0
+#define K_PROP 15.0
 
 // Zumo constants
 #define zumoBaseLength 0.085
@@ -50,7 +51,7 @@
 
 
 // Object definitions
-Zumo32U4ButtonA buttonA;
+Zumo32U4ButtonC buttonC;
 Zumo32U4Motors motors;
 Zumo32U4ProximitySensors proxSensors;
 
@@ -188,22 +189,20 @@ void ControlLoop() {
   float errorLeft = leftWheelDesired - odometer->GetLeftWheelSpeed();
 
   // Adjust wheel speeds based on error values
+  
+  // NICHOLI's APPROACH:
   //if (errorRight > 0.) rightMotorValue += 1;
   //else if (errorRight < 0.) rightMotorValue -= 1;
   //else {}
-  if (USE_PROP_CONTROL)
-    rightMotorValue += (int)(K_PROP * errorRight);
-  else
-    rightMotorValue = rightWheelDesired;
-
+  // AV's APPROACH:
+  rightMotorValue += (int)(K_PROP * errorRight);
+  
+  // NICHOLI's APPROACH:
   //if (errorLeft > 0.) leftMotorValue += 1;
   //else if (errorLeft < 0.) leftMotorValue -= 1;
   //else {}
-  if (USE_PROP_CONTROL)
-    leftMotorValue += (int)(K_PROP * errorLeft);
-  else
-    leftMotorValue = leftWheelDesired;
-
+  leftMotorValue += (int)(K_PROP * errorLeft);
+  
   if (leftMotorValue >= 400) leftMotorValue = 400;
   if (leftMotorValue <= -400) leftMotorValue = -400;
 
@@ -245,9 +244,10 @@ void ControlLoop() {
 }
 void loop() {
 
-  // The "A" button toggles between active movement of the robot and the stopped mode
-  // which ignores serial input.
-  if (buttonA.getSingleDebouncedPress()) {
+  // Detect button press which toggles between active and stopped mode.  
+  // In active mode the robot follows commands sent from the host computer.
+  // In stopped mode it ignores serial input.
+  if (buttonC.getSingleDebouncedPress()) {
     if (robotOnFlag) {
       robotOnFlag = false;
       ledRed(1);
@@ -272,7 +272,7 @@ void loop() {
        // Pass
     }
 
-    //sll.println(F("Press A button to begin..."));
+    //sll.println(F("Press button to begin..."));
     motors.setSpeeds(0, 0);
   }  
 }
