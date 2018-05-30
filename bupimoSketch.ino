@@ -10,7 +10,7 @@
                       Otherwise, it will be left alone.  Send the command "0:0:0" (or "0:0:1") to 
                       stop the robot.
 
-                      3 seconds after receiving a command, the robot will stop.  So it needs to be
+                      1 second after receiving a command, the robot will stop.  So it needs to be
                       continuously fed new commands to keep going.
 
                       After receiving a command string, we will respond with the following  sequence 
@@ -175,7 +175,7 @@ void ControlLoop() {
     CalculateDesiredWheelSpeeds();
     commandTimeStamp = currentTime;
   } else {
-    if (currentTime - commandTimeStamp > 3000) {
+    if (currentTime - commandTimeStamp > 1000) {
       // No recent commands received.  Stop the robot!
       ZeroSpeeds();
     }

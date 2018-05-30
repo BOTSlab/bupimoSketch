@@ -9,7 +9,7 @@ r is a 0/1 value indicating whether the odometric estimate of position should
 be reset to (0, 0, 0).  The speed values commands are compared to values from
 the encoders by a low-level controller which then controls the motors.
 
-3 seconds after receiving a command the robot will stop.
+1 second after receiving a command the robot will stop.
 
 The output data has the form:
 
