@@ -3,20 +3,22 @@
     The high-level controller sends command strings over a serial link.  The 
     format for these commands is as follows:
 
-        desired_linear_speed:desired_angular_speed:reset_odometer
+        desired_linear_speed:desired_angular_speed
 
-    These quantities have units of m/sec and rads/sec.  If reset_odometer is
-    set to 1 then the odometric estimate of position will be reset to (0, 0, 0).
-    Otherwise, it will be left alone.  Send the command "0:0:0" (or "0:0:1") to 
-    stop the robot.
+    These quantities have units of m/sec and rads/sec.  Send the command "0:0"
+    to stop the robot.
 
-    3 seconds after receiving a command, the robot will stop.  So it needs to be
-    continuously fed new commands to keep going.
+    Also, 3 seconds after receiving a command, the robot will stop.  So it
+    needs to be continuously fed new commands to keep going.
 
     After receiving a command string, we will respond with the following 
     sequence of tab-separated quantities:
 
     odoX, odoY, odoTheta, linearSpeed, angularSpeed, compassHeading
+
+    EXPERIMENTAL: The Zumo lacks easily reachable buttons.  As a work-around
+    the front proximity sensor will be used as a "button" to reset
+    the odometric estimate of position to (0, 0).
 
     ---------------------------------------------------------------------------
 
@@ -53,7 +55,6 @@
 #define zumoBaseLength 0.085
 #define zumoWheelRadius 0.019
 
-
 // Object definitions
 Zumo32U4ButtonC buttonC;
 Zumo32U4Motors motors;
@@ -71,7 +72,6 @@ bool robotOnFlag = true;
 // These values store motion commands and are read from the serial port
 float linearSpeedDesired = 0.;
 float angularSpeedDesired = 0.;
-int resetOdometer = 0;
 unsigned long commandTimeStamp = millis();
 
 // These have to do with serial comms.
@@ -91,10 +91,6 @@ int rightMotorValue = 0;
 int nLeft = 0;
 int nRight = 0;
 int nFront = 0;
-
-float cmd1, cmd2;
-int cmd3;
-
 
 void setup() {
     Wire.begin();
@@ -136,25 +132,13 @@ void CommandParse(char* readFromSerial) {
     char* command = strtok(readFromSerial, ":");
 
     linearSpeedDesired = atof(command);
-cmd1 = linearSpeedDesired;
     command = strtok(0, ":");
     angularSpeedDesired = atof(command);
-cmd2 = angularSpeedDesired;
-    command = strtok(0, ":");
-    resetOdometer = atoi(command);
-cmd3 = resetOdometer;
-
-if (cmd1 == NULL || cmd2 == NULL || cmd3 == NULL)
-    buzzer.playNote(NOTE_A(4), 100, 15);
 
     if (linearSpeedDesired > MAX_LINEAR_SPEED) linearSpeedDesired = MAX_LINEAR_SPEED;
     if (linearSpeedDesired < -MAX_LINEAR_SPEED) linearSpeedDesired = -MAX_LINEAR_SPEED;
     if (angularSpeedDesired > MAX_ANGULAR_SPEED) angularSpeedDesired = MAX_ANGULAR_SPEED;     
     if (angularSpeedDesired < -MAX_ANGULAR_SPEED) angularSpeedDesired = -MAX_ANGULAR_SPEED;
-
-    if (resetOdometer) {
-        odometer->ResetPosition();
-    }
 }
 
 void UpdateProxSensors(){
@@ -163,6 +147,12 @@ void UpdateProxSensors(){
     nLeft = proxSensors.countsLeftWithLeftLeds()+proxSensors.countsLeftWithRightLeds();   
     nFront = proxSensors.countsFrontWithLeftLeds()+proxSensors.countsFrontWithRightLeds();  
     nRight = proxSensors.countsRightWithLeftLeds()+proxSensors.countsRightWithRightLeds();
+
+    // EXPERIMENTAL
+    if (nFront < 8) {
+        buzzer.playNote(NOTE_A(4), 100, 15);
+        odometer->ResetPosition();
+    }
 }
 
 void CalculateDesiredWheelSpeeds() {
@@ -244,14 +234,11 @@ void ControlLoop() {
         //Serial.print("\t");
         //Serial.print(linearSpeedDesired);
         //Serial.print("\t");
-//        Serial.print(odometer->GetX());
-Serial.print(cmd1);
+        Serial.print(odometer->GetX());
         Serial.print("\t");
-//        Serial.print(odometer->GetY());
-Serial.print(cmd2);
+        Serial.print(odometer->GetY());
         Serial.print("\t");
-//        Serial.print(odometer->GetTheta());
-Serial.print(cmd3);
+        Serial.print(odometer->GetTheta());
         Serial.print("\t");
         Serial.print(odometer->GetLinearSpeed());
         Serial.print("\t");
@@ -262,8 +249,6 @@ Serial.print(cmd3);
         Serial.print(nFront);
         Serial.print("\t");
         Serial.print("\n");
-
-
 
         // For debugging on serial port 0
         //Serial.print(linearSpeedDesired);
